@@ -1,0 +1,19 @@
+{
+  "mode": "master",
+  "hostname": "device1",
+  "master_host": "master.example.i.open.ad.jp",
+
+  "wifi": {
+    "ssid": "YOUR_SSID",
+    "password": "YOUR_PASSWORD"
+  },
+
+  "sync_interval": 10,
+
+  "ntp": {
+    "server": "ntp.nict.jp",
+    "interval": 3600
+  },
+
+  "ddns_target": "xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx"
+}
