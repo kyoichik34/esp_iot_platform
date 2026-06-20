@@ -2,6 +2,7 @@
 #include "config.h"
 #include "ui.h"
 #include "http_server.h"
+#include "presence.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -12,46 +13,18 @@
 #include "esp_netif.h"
 #include "esp_netif_ip_addr.h"
 
-#include "lwip/inet.h"
-#include "ping/ping_sock.h"
-
 static const char *TAG = "wifi";
+
+/* ===== 状態 ===== */
+char g_ipv4_str[32] = "0.0.0.0";
+char g_ipv6_str[64] = "N/A";
+
+int g_ipv4_ready = 0;
+int g_ipv6_ready = 0;
+int g_rssi = 0;
 
 static esp_netif_t* s_netif = NULL;
 
-/* ===== 状態共有 ===== */
-char g_ipv4_str[32] = "0.0.0.0";
-char g_ipv6_str[64] = "N/A";
-int  g_rssi = 0;
-
-/* ===== DDNS ping ===== */
-static void start_ping(void)
-{
-    if (strlen(g_config.ddns_target) == 0) {
-        return;
-    }
-
-    ip_addr_t addr;
-
-    if (!ipaddr_aton(g_config.ddns_target, &addr)) {
-        ESP_LOGE(TAG, "Invalid IPv6");
-        return;
-    }
-
-    esp_ping_config_t config = ESP_PING_DEFAULT_CONFIG();
-    config.target_addr = addr;
-    config.count = 1;
-
-    esp_ping_callbacks_t cbs = {0};
-
-    esp_ping_handle_t ping;
-    esp_ping_new_session(&config, &cbs, &ping);
-    esp_ping_start(ping);
-
-    ESP_LOGI(TAG, "Ping: %s", g_config.ddns_target);
-}
-
-/* ===== イベント ===== */
 static void handler(void* arg,
                     esp_event_base_t base,
                     int32_t id,
@@ -64,12 +37,10 @@ static void handler(void* arg,
         }
 
         if (id == WIFI_EVENT_STA_CONNECTED) {
-            ESP_LOGI(TAG, "Connected");
             esp_netif_create_ip6_linklocal(s_netif);
         }
 
         if (id == WIFI_EVENT_STA_DISCONNECTED) {
-            ESP_LOGI(TAG, "Disconnected → retry");
             esp_wifi_connect();
         }
     }
@@ -83,18 +54,19 @@ static void handler(void* arg,
                  IPSTR,
                  IP2STR(&e->ip_info.ip));
 
+        g_ipv4_ready = 1;
+
         ESP_LOGI(TAG, "IPv4: %s", g_ipv4_str);
 
-        /* RSSI取得 */
         wifi_ap_record_t ap;
         if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
             g_rssi = ap.rssi;
         }
 
-        static int http_started = 0;
-        if (!http_started) {
+        static int started = 0;
+        if (!started) {
             http_server_start();
-            http_started = 1;
+            started = 1;
         }
     }
 
@@ -115,14 +87,13 @@ static void handler(void* arg,
                      IPV6STR,
                      IPV62STR(e->ip6_info.ip));
 
-            ui_update(g_ipv6_str);
+            g_ipv6_ready = 1;
 
-            start_ping();
+            ui_update_network();
         }
     }
 }
 
-/* ===== 初期化 ===== */
 void wifi_init_sta(void)
 {
     esp_netif_init();
@@ -131,7 +102,7 @@ void wifi_init_sta(void)
     s_netif = esp_netif_create_default_wifi_sta();
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    esp_wifi_init(&cfg);
 
     esp_event_handler_instance_register(
         WIFI_EVENT, ESP_EVENT_ANY_ID,
@@ -147,14 +118,11 @@ void wifi_init_sta(void)
 
     wifi_config_t wifi_cfg = {0};
 
-    strcpy((char*)wifi_cfg.sta.ssid,
-           g_config.wifi.ssid);
-    strcpy((char*)wifi_cfg.sta.password,
-           g_config.wifi.password);
+    strcpy((char*)wifi_cfg.sta.ssid, g_config.wifi.ssid);
+    strcpy((char*)wifi_cfg.sta.password, g_config.wifi.password);
 
     esp_wifi_set_mode(WIFI_MODE_STA);
     esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg);
-
     esp_wifi_set_ps(WIFI_PS_NONE);
 
     esp_wifi_start();

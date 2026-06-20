@@ -1,31 +1,27 @@
 #pragma once
 
+#include <stdbool.h>
+
+#define MAX_MASTERS 5
+
+/* ★名前変更 */
 typedef struct {
     char ssid[32];
     char password[64];
-} app_wifi_config_t;
+} wifi_cred_t;   // ←変更
 
 typedef struct {
-    char server[64];
-    int interval;
-} ntp_config_t;
 
-typedef struct {
-    char mode[16];
-    char hostname[64];
-    char master_host[64];
+    wifi_cred_t wifi;   // ←ここも変更
 
-    app_wifi_config_t wifi;
+    char hostname[32];
 
-    int sync_interval;
-
-    ntp_config_t ntp;
-
-    char ddns_target[64];
+    bool send_update;
+    int  master_count;
+    char masters[MAX_MASTERS][64];
 
 } config_t;
 
 extern config_t g_config;
 
 void config_init(void);
-int config_load(void);

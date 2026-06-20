@@ -5,21 +5,18 @@
 #include "config.h"
 #include "ui.h"
 #include "wifi.h"
+#include "presence.h"
 
-#include "cJSON.h"   // ★追加
+#include "cJSON.h"
 
 static const char *TAG = "http";
 
-/* ===== 内部状態 ===== */
-static char g_message[64] = "online";
+/* ===== 状態 ===== */
+char g_message[64] = "online";
 
 /* ===== GET /state ===== */
 static esp_err_t state_get_handler(httpd_req_t *req)
 {
-    ESP_LOGI(TAG, "GET /state");
-
-    ui_update("/state");
-
     int uptime = esp_log_timestamp() / 1000;
 
     char resp[512];
@@ -28,14 +25,18 @@ static esp_err_t state_get_handler(httpd_req_t *req)
              "{"
              "\"hostname\":\"%s\","
              "\"ipv4\":\"%s\","
+             "\"ipv4_ready\":%d,"
              "\"ipv6\":\"%s\","
+             "\"ipv6_ready\":%d,"
              "\"status\":\"%s\","
              "\"rssi\":%d,"
              "\"uptime\":%d"
              "}",
              g_config.hostname,
              g_ipv4_str,
+             g_ipv4_ready,
              g_ipv6_str,
+             g_ipv6_ready,
              g_message,
              g_rssi,
              uptime
@@ -53,40 +54,23 @@ static esp_err_t state_post_handler(httpd_req_t *req)
     char buf[128];
 
     int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
-
-    if (len <= 0) {
-        httpd_resp_send_err(req,
-                            HTTPD_400_BAD_REQUEST,
-                            "No data");
-        return ESP_FAIL;
-    }
+    if (len <= 0) return ESP_FAIL;
 
     buf[len] = 0;
 
-    ESP_LOGI(TAG, "POST /state: %s", buf);
-
-    /* JSON解析 */
     cJSON *root = cJSON_Parse(buf);
-    if (!root) {
-        httpd_resp_send_err(req,
-                            HTTPD_400_BAD_REQUEST,
-                            "Invalid JSON");
-        return ESP_FAIL;
-    }
+    if (!root) return ESP_FAIL;
 
     cJSON *msg = cJSON_GetObjectItem(root, "message");
 
     if (cJSON_IsString(msg) && msg->valuestring) {
 
-        strncpy(g_message,
-                msg->valuestring,
-                sizeof(g_message));
-
+        strncpy(g_message, msg->valuestring, sizeof(g_message));
         g_message[sizeof(g_message)-1] = '\0';
 
         ui_update(g_message);
 
-        ESP_LOGI(TAG, "Message updated: %s", g_message);
+        presence_send_update_all();   // ★ここ重要
     }
 
     cJSON_Delete(root);
@@ -96,7 +80,25 @@ static esp_err_t state_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-/* ===== サーバ起動 ===== */
+/* ===== POST /update ===== */
+static esp_err_t update_handler(httpd_req_t *req)
+{
+    char buf[128];
+
+    int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (len <= 0) return ESP_FAIL;
+
+    buf[len] = 0;
+
+    ESP_LOGI(TAG, "UPDATE %s", buf);
+
+    // 今はログだけ（後でdevices管理に拡張）
+
+    httpd_resp_sendstr(req, "OK");
+    return ESP_OK;
+}
+
+/* ===== サーバ ===== */
 void http_server_start(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -117,8 +119,15 @@ void http_server_start(void)
             .handler = state_post_handler
         };
 
+        httpd_uri_t update_uri = {
+            .uri = "/update",
+            .method = HTTP_POST,
+            .handler = update_handler
+        };
+
         httpd_register_uri_handler(server, &get_uri);
         httpd_register_uri_handler(server, &post_uri);
+        httpd_register_uri_handler(server, &update_uri);
 
         ESP_LOGI(TAG, "HTTP server started");
     }

@@ -1,22 +1,61 @@
 #include "ui.h"
-#include "LGFX_ESP32S3_WT32_SC01_Plus.hpp"
-#include <LovyanGFX.hpp>
+#include "wifi.h"
 
-static LGFX lcd;
+#include <stdio.h>
+#include <string.h>
 
-void ui_init(void)
+/* ===== 外部状態 ===== */
+extern char g_ipv4_str[32];
+extern char g_ipv6_str[64];
+extern int  g_ipv4_ready;
+extern int  g_ipv6_ready;
+
+/* ===== LCD抽象（ここを自分の環境に合わせる） ===== */
+
+/* 仮の関数（あなたの環境に合わせて中身差し替え） */
+static void lcd_clear(void)
 {
-    lcd.init();
-    lcd.fillScreen(TFT_BLACK);
+    // TODO: 実際のLCDクリア処理
 }
 
-void ui_update(const char* msg)
+static void lcd_draw_string(int x, int y, const char *str)
 {
-    lcd.setCursor(0, 0);
-    lcd.setTextColor(TFT_WHITE);
-    lcd.fillScreen(TFT_BLACK);
+    // TODO: 実際のLCD描画処理
+}
 
-    lcd.println("ESP32 Presence");
-    lcd.println("----------------");
-    lcd.println(msg);
+/* ===== メッセージ表示 ===== */
+void ui_update(const char *msg)
+{
+    lcd_clear();
+
+    char buf[64];
+
+    snprintf(buf, sizeof(buf),
+             "MSG: %.32s", msg);
+
+    lcd_draw_string(0, 0, buf);
+}
+
+/* ===== ネットワーク表示 ===== */
+void ui_update_network(void)
+{
+    lcd_clear();
+
+    char line1[64];
+    char line2[64];
+
+    /* IPv4 */
+    snprintf(line1, sizeof(line1),
+             "IPv4 %c %s",
+             g_ipv4_ready ? 'O' : 'X',
+             g_ipv4_ready ? g_ipv4_str : "-");
+
+    /* IPv6（長いので省略） */
+    snprintf(line2, sizeof(line2),
+             "IPv6 %c %.20s",
+             g_ipv6_ready ? 'O' : 'X',
+             g_ipv6_ready ? g_ipv6_str : "-");
+
+    lcd_draw_string(0, 0, line1);
+    lcd_draw_string(0, 16, line2);
 }

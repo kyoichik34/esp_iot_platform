@@ -23,7 +23,7 @@ void app_main(void)
 
     spiffs_init();
 
-    config_load();
+    config_init();
 
     ui_init();
     ui_update("Booting...");

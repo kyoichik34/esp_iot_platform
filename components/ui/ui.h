@@ -6,7 +6,8 @@ extern "C" {
 
 void ui_init(void);
 void ui_update(const char* text);
-
+void ui_update_network(void);
+	
 #ifdef __cplusplus
 }
 #endif
