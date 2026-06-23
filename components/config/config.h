@@ -2,26 +2,43 @@
 
 #include <stdbool.h>
 
+/* ===== 定数 ===== */
 #define MAX_MASTERS 5
 
-/* ★名前変更 */
+/* ===== WiFi設定 ===== */
+/* ※ wifi_config_t と名前衝突しないように注意 */
 typedef struct {
     char ssid[32];
     char password[64];
-} wifi_cred_t;   // ←変更
+} wifi_cred_t;
 
+/* ===== 全体設定 ===== */
 typedef struct {
 
-    wifi_cred_t wifi;   // ←ここも変更
+    /* ===== 基本 ===== */
+    char hostname[32];     // ノード識別名
 
-    char hostname[32];
+    /* ===== WiFi ===== */
+    wifi_cred_t wifi;
 
-    bool send_update;
-    int  master_count;
-    char masters[MAX_MASTERS][64];
+    /* ===== Presence ===== */
+    bool send_update;      // sendするか
+    int  master_count;     // master数
+    char masters[MAX_MASTERS][64];  // ドメイン or IP
+
+    int  sync_interval;    // 秒（heartbeat）
+
+    /* ===== NTP ===== */
+    char ntp_server[64];
+    int  ntp_interval;     // 秒
+
+    /* ===== DDNS ===== */
+    char ddns_target[64];  // ping先
 
 } config_t;
 
+/* ===== グローバル ===== */
 extern config_t g_config;
 
+/* ===== API ===== */
 void config_init(void);

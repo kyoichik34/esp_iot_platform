@@ -10,17 +10,25 @@ extern char g_ipv6_str[64];
 extern int  g_ipv4_ready;
 extern int  g_ipv6_ready;
 
-/* ===== LCD抽象（ここを自分の環境に合わせる） ===== */
+/* ===== LCD抽象（ここを自分の環境に置き換える） ===== */
 
-/* 仮の関数（あなたの環境に合わせて中身差し替え） */
 static void lcd_clear(void)
 {
-    // TODO: 実際のLCDクリア処理
+    // TODO: 実装に合わせて書き換え
 }
 
 static void lcd_draw_string(int x, int y, const char *str)
 {
-    // TODO: 実際のLCD描画処理
+    // TODO: 実装に合わせて書き換え
+}
+
+/* ===== 初期化 ===== */
+void ui_init(void)
+{
+    lcd_clear();
+
+    lcd_draw_string(0, 0, "ESP32 Presence");
+    lcd_draw_string(0, 16, "Starting...");
 }
 
 /* ===== メッセージ表示 ===== */
