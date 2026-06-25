@@ -17,6 +17,8 @@ extern char g_ipv6_str[64];
 extern int  g_ipv4_ready;
 extern int  g_ipv6_ready;
 
+static char g_ui_status[32] = "READY";
+
 /* ===== LCD抽象（暫定：ログ出力にする） ===== */
 
 static void lcd_clear(void)
@@ -107,6 +109,8 @@ void ui_init(void)
 
     lcd_clear();
 
+    draw_center_text("BOOT");
+
     lcd.setCursor(0, 0);
     lcd.print("ESP32 Presence");
 
@@ -118,9 +122,11 @@ void ui_update(const char *msg)
 {
     ESP_LOGI(TAG, "ui_update: %s", msg);
 
+    strncpy(g_ui_status, msg, sizeof(g_ui_status)-1);
+
     lcd_clear();
 
-    draw_center_text(msg);  // ← 中央でか表示
+    draw_center_text(g_ui_status); // 中央表示
 
     draw_status();          // ← 右下固定
 }
