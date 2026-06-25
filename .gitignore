@@ -17,7 +17,7 @@ sdkconfig.old
 venv/
 
 # WiFi credentials
-spiffs/config.json
+spiffs/config*.json
 
 # components
 components/LovyanGFX/
