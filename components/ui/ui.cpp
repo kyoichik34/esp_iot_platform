@@ -99,6 +99,42 @@ static void draw_center_text(const char *text)
     lcd.print(text);
 }
 
+static void draw_network(void)
+{
+    lcd.setTextSize(2);
+    lcd.setTextColor(TFT_WHITE, TFT_BLACK);
+
+    char line1[96];
+    char line2[96];
+
+    snprintf(line1, sizeof(line1),
+             "IPv4 %c %s",
+             g_ipv4_ready ? 'O' : 'X',
+             g_ipv4_ready ? g_ipv4_str : "-");
+
+    snprintf(line2, sizeof(line2),
+             "IPv6 %c %.30s",
+             g_ipv6_ready ? 'O' : 'X',
+             g_ipv6_ready ? g_ipv6_str : "-");
+
+    lcd.setCursor(0, 0);
+    lcd.print(line1);
+
+    lcd.setCursor(0, 32);
+    lcd.print(line2);
+}
+
+
+static void render_all(void)
+{
+    lcd_clear();
+
+    draw_center_text(g_ui_status);
+    draw_network();    // ← 分離
+    draw_status();
+}
+
+
 /* ===== 初期化 ===== */
 void ui_init(void)
 {
@@ -121,22 +157,13 @@ void ui_init(void)
 void ui_update(const char *msg)
 {
     ESP_LOGI(TAG, "ui_update: %s", msg);
-
-    strncpy(g_ui_status, msg, sizeof(g_ui_status)-1);
-
-    lcd_clear();
-
-    draw_center_text(g_ui_status); // 中央表示
-
-    draw_status();          // ← 右下固定
+    snprintf(g_ui_status, sizeof(g_ui_status), "%s", msg);
+    render_all();
 }
+
 /* ===== ネットワーク表示 ===== */
 void ui_update_network(void)
 {
-    lcd_clear();
-
-    lcd.setTextSize(2);
-    lcd.setTextColor(TFT_WHITE, TFT_BLACK);
-
-    draw_status();   // ★追加
+    render_all();  // ★状態変えず再描画だけ
 }
+

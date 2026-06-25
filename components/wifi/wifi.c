@@ -57,7 +57,7 @@ static void handler(void* arg,
                     int32_t id,
                     void* data)
 {
-    /* š‚Ü‚¸‘S•”o‚· */
+    static int ready_sent = 0;
     ESP_LOGI(TAG, "EVENT base=%s id=%ld", base, id);
 
     if (base == WIFI_EVENT) {
@@ -96,6 +96,12 @@ static void handler(void* arg,
 
         ESP_LOGI(TAG, "IPv4: %s", g_ipv4_str);
 
+        /* ‰‰ñ‚Ì‚İ */
+        if (!ready_sent) {
+            ui_update("READY");
+            ready_sent = 1;
+        }
+
         wifi_ap_record_t ap;
         if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
             g_rssi = ap.rssi;
@@ -130,6 +136,11 @@ static void handler(void* arg,
             g_ipv6_ready = 1;
 
             ESP_LOGI(TAG, "IPv6 READY");
+            if (!ready_sent) {
+                ui_update("READY");
+                ready_sent = 1;
+            }
+
 
             start_ping();
 
