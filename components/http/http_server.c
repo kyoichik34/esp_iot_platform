@@ -14,6 +14,34 @@ static const char *TAG = "http";
 /* ===== èÛë‘ ===== */
 char g_message[64] = "online";
 
+extern const uint8_t index_html_start[] asm("_binary_index_html_start");
+extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
+
+static esp_err_t root_handler(httpd_req_t *req)
+{
+    FILE *f = fopen("/spiffs/index.html", "r");
+    if (!f) {
+        httpd_resp_send_404(req);
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "text/html");
+
+    char buf[256];
+    size_t read_bytes;
+
+    while ((read_bytes = fread(buf, 1, sizeof(buf), f)) > 0) {
+        httpd_resp_send_chunk(req, buf, read_bytes);
+    }
+
+    fclose(f);
+
+    /* èIí[ */
+    httpd_resp_send_chunk(req, NULL, 0);
+
+    return ESP_OK;
+}
+
 /* ===== GET /state ===== */
 static esp_err_t state_get_handler(httpd_req_t *req)
 {
@@ -125,9 +153,18 @@ void http_server_start(void)
             .handler = update_handler
         };
 
+        httpd_uri_t root = {
+            .uri = "/",
+            .method = HTTP_GET,
+            .handler = root_handler
+        };
+
         httpd_register_uri_handler(server, &get_uri);
         httpd_register_uri_handler(server, &post_uri);
         httpd_register_uri_handler(server, &update_uri);
+
+        httpd_register_uri_handler(server, &root);
+
 
         ESP_LOGI(TAG, "HTTP server started");
     }

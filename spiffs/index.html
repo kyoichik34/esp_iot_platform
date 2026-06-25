@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ESP32 Presence</title>
+
+<style>
+body {
+    font-family: sans-serif;
+    background: #111;
+    color: #fff;
+    text-align: center;
+}
+
+.box {
+    border: 1px solid #444;
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px auto;
+    width: 320px;
+}
+
+button {
+    padding: 10px;
+    margin: 5px;
+    font-size: 16px;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>ESP32 Presence</h1>
+
+<div class="box">
+    <h2>Status</h2>
+    <div id="status">--</div>
+    <div id="hostname"></div>
+    <div id="ipv4"></div>
+    <div id="ipv6"></div>
+    <div id="rssi"></div>
+    <div id="uptime"></div>
+</div>
+
+<div class="box">
+    <h2>Set Status</h2>
+    <button onclick="setStatus('online')">Online</button>
+    <button onclick="setStatus('away')">Away</button>
+    <button onclick="setStatus('busy')">Busy</button>
+</div>
+
+<script>
+
+/* ===== 状態取得 ===== */
+async function fetchState() {
+    try {
+        const res = await fetch('/state');
+        const data = await res.json();
+
+        document.getElementById('status').textContent =
+            "Status: " + data.status;
+
+        document.getElementById('hostname').textContent =
+            "Host: " + data.hostname;
+
+        document.getElementById('ipv4').textContent =
+            "IPv4: " + data.ipv4;
+
+        document.getElementById('ipv6').textContent =
+            "IPv6: " + data.ipv6;
+
+        document.getElementById('rssi').textContent =
+            "RSSI: " + data.rssi;
+
+        document.getElementById('uptime').textContent =
+            "Uptime: " + data.uptime + "s";
+
+    } catch (e) {
+        console.error("fetch error", e);
+    }
+}
+
+/* ===== 状態変更 ===== */
+async function setStatus(msg) {
+    try {
+        await fetch('/state', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: msg
+            })
+        });
+
+        fetchState(); // 更新
+
+    } catch (e) {
+        console.error("post error", e);
+    }
+}
+
+/* ===== 自動更新 ===== */
+setInterval(fetchState, 2000);
+
+/* 初回ロード */
+fetchState();
+
+</script>
+
+</body>
+</html>
