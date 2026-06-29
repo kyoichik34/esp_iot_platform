@@ -1,19 +1,32 @@
 {
-  "mode": "master",
   "hostname": "device1",
-  "master_host": "master.example.i.open.ad.jp",
 
   "wifi": {
     "ssid": "YOUR_SSID",
     "password": "YOUR_PASSWORD"
   },
 
+  /* ===== モード ===== */
+  "is_slave": false,
+
+  /* ===== 接続先 ===== */
+  "masters": [
+    "master1.example.com",
+    "master2.example.com"
+  ],
+
+  /* ===== 同期間隔（秒） ===== */
   "sync_interval": 10,
 
+  /* ===== 状態通知 ===== */
+  "send_update": true,
+
+  /* ===== NTP ===== */
   "ntp": {
     "server": "ntp.nict.jp",
     "interval": 3600
   },
 
+  /* ===== DDNS（IPv6直接） ===== */
   "ddns_target": "xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx"
 }

@@ -78,6 +78,9 @@ static void handler(void* arg,
             wifi_event_sta_disconnected_t* e = data;
             ESP_LOGW(TAG, "disconnect reason=%d", e->reason);
 
+            ready_sent = 0;
+            ui_update("Disconnected");
+
             esp_wifi_connect();
         }
     }
@@ -99,6 +102,11 @@ static void handler(void* arg,
         /* ‰‰ñ‚Ì‚İ */
         if (!ready_sent) {
             ui_update("READY");
+
+        if (!g_config.is_slave) {
+            presence_send_update_all();   // š‚±‚±‚àOK
+        }
+
             ready_sent = 1;
         }
 

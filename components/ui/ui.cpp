@@ -167,3 +167,8 @@ void ui_update_network(void)
     render_all();  // ★状態変えず再描画だけ
 }
 
+const char* ui_get_status(void)
+{
+    return g_ui_status;
+}
+

@@ -9,6 +9,7 @@
 static const char *TAG = "config";
 
 config_t g_config;
+bool config_valid = false;
 
 /* ===== デフォルト設定 ===== */
 static void set_default(void)
@@ -40,12 +41,12 @@ static void set_default(void)
 }
 
 /* ===== JSON解析 ===== */
-static void load_json(const char *json)
+static bool load_json(const char *json)
 {
     cJSON *root = cJSON_Parse(json);
     if (!root) {
-        ESP_LOGW(TAG, "JSON parse failed → use default");
-        return;
+        ESP_LOGW(TAG, "JSON parse failed");
+        return false;
     }
 
     /* hostname */
@@ -137,6 +138,8 @@ static void load_json(const char *json)
     }
 
     cJSON_Delete(root);
+
+	return true;
 }
 
 /* ===== 初期化 ===== */
@@ -146,7 +149,7 @@ void config_init(void)
 
     FILE *f = fopen("/spiffs/config.json", "r");
     if (!f) {
-        ESP_LOGW(TAG, "config.json not found → using default");
+        ESP_LOGE(TAG, "config.json not found!");
         return;
     }
 
@@ -155,11 +158,18 @@ void config_init(void)
     fclose(f);
 
     if (len > 0) {
-        ESP_LOGI(TAG, "config.json loaded");
-        load_json(buf);
+        if( !load_json(buf) ) {
+            ESP_LOGI(TAG, "config.json failed");
+            return;
+        }
+        else {
+            ESP_LOGI(TAG, "config.json loaded");
+        }
     } else {
         ESP_LOGW(TAG, "config.json empty");
+		return;
     }
+    config_valid = true;
 
     /* ===== ログ ===== */
     ESP_LOGI(TAG, "hostname: %s", g_config.hostname);
@@ -173,3 +183,4 @@ void config_init(void)
     ESP_LOGI(TAG, "SSID: %s", g_config.wifi.ssid);
     ESP_LOGI(TAG, "PASS: %s", g_config.wifi.password);
 }
+

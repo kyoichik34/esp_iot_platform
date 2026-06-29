@@ -26,6 +26,8 @@ typedef struct {
     int  master_count;     // master数
     char masters[MAX_MASTERS][64];  // ドメイン or IP
 
+    int is_slave;
+
     int  sync_interval;    // 秒（heartbeat）
 
     /* ===== NTP ===== */
@@ -39,6 +41,7 @@ typedef struct {
 
 /* ===== グローバル ===== */
 extern config_t g_config;
+extern bool config_valid;
 
 /* ===== API ===== */
 void config_init(void);
