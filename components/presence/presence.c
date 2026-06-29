@@ -7,12 +7,15 @@
 
 #include "esp_log.h"
 #include "esp_http_client.h"
+#include "esp_timer.h"
 #include "cJSON.h"
 
 #include <string.h>
 #include <stdlib.h>
 
 static const char *TAG = "presence";
+
+static int64_t g_last_send_time = 0;
 
 /* ===== shuffle ===== */
 static void shuffle(char masters[][64], int count)
@@ -92,11 +95,20 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 }
 
 /* ===== 全送信 ===== */
-void presence_send_update_all(void)
+void presence_send_update_all_with(const char *status)
 {
     char json[256];
 
-    const char* status = ui_get_status();
+    int64_t now = esp_timer_get_time();
+
+    // 500ms以内は捨てる
+    if (now - g_last_send_time < 500000) {
+        ESP_LOGW(TAG, "send throttled");
+        return;
+    }
+
+    g_last_send_time = now;
+
     snprintf(json, sizeof(json),
         "{ \"hostname\":\"%s\", \"status\":\"%s\" }",
         g_config.hostname,
@@ -108,7 +120,7 @@ void presence_send_update_all(void)
         snprintf(url, sizeof(url),
                  "http://%s/update",
                  g_config.masters[i]);
-        ESP_LOGI("presence", "POST %s", url);
+        ESP_LOGI(TAG, "POST %s payload = %s", url, json);
         esp_http_client_config_t config = {
             .url = url,
             .method = HTTP_METHOD_POST,
@@ -121,12 +133,17 @@ void presence_send_update_all(void)
             json, strlen(json));
         esp_err_t err = esp_http_client_perform(client);
         if (err == ESP_OK) {
-            ESP_LOGI("presence", "POST OK");
+            ESP_LOGI(TAG, "POST OK");
         } else {
-            ESP_LOGE("presence", "POST FAIL");
+            ESP_LOGE(TAG, "POST FAIL");
         }
         esp_http_client_cleanup(client);
     }
+}
+
+void presence_send_update_all(void)
+{
+    presence_send_update_all_with(ui_get_status());
 }
 
 void presence_poll_master(void)

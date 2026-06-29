@@ -45,14 +45,14 @@ button {
 
 <div class="box">
     <h2>Set Status</h2>
-    <button onclick="setStatus('online')">Online</button>
-    <button onclick="setStatus('away')">Away</button>
-    <button onclick="setStatus('busy')">Busy</button>
+    <button onclick="setStatus('ONLINE')">Online</button>
+    <button onclick="setStatus('AWAY')">Away</button>
+    <button onclick="setStatus('BUSY')">Busy</button>
 </div>
 
 <script>
 
-/* ===== 状態取得 ===== */
+/* ===== ﾔ取得 ===== */
 async function fetchState() {
     try {
         const res = await fetch('/state');
@@ -81,7 +81,7 @@ async function fetchState() {
     }
 }
 
-/* ===== 状態変更 ===== */
+/* ===== ﾔ変更 ===== */
 async function setStatus(msg) {
     try {
         await fetch('/state', {
@@ -94,17 +94,17 @@ async function setStatus(msg) {
             })
         });
 
-        fetchState(); // 更新
+        fetchState(); // XV
 
     } catch (e) {
         console.error("post error", e);
     }
 }
 
-/* ===== 自動更新 ===== */
+/* ===== XV ===== */
 setInterval(fetchState, 2000);
 
-/* 初回ロード */
+/* 香[h */
 fetchState();
 
 </script>

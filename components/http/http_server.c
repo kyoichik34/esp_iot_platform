@@ -95,8 +95,8 @@ static esp_err_t state_post_handler(httpd_req_t *req)
 
         ui_update(g_message);
 
-        if (!g_config.is_slave) {
-            presence_send_update_all();   // ★ここ重要
+        if (g_config.send_update) {
+            presence_send_update_all_with(g_message);   // ★ここ重要
         }
     }
 
