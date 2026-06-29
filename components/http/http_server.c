@@ -119,7 +119,19 @@ static esp_err_t update_handler(httpd_req_t *req)
 
     ESP_LOGI(TAG, "UPDATE %s", buf);
 
-    // ¡‚ÍƒƒO‚¾‚¯iŒã‚ÅdevicesŠÇ—‚ÉŠg’£j
+    cJSON *root = cJSON_Parse(buf);
+    if (!root) return ESP_FAIL;
+
+    cJSON *status = cJSON_GetObjectItem(root, "status");
+
+    if (cJSON_IsString(status) && status->valuestring) {
+        strncpy(g_message, status->valuestring, sizeof(g_message));
+        g_message[sizeof(g_message) - 1] = '\0';
+
+        ui_update(g_message);
+    }
+
+    cJSON_Delete(root);
 
     httpd_resp_sendstr(req, "OK");
     return ESP_OK;

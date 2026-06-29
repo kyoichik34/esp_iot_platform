@@ -88,6 +88,12 @@ void presence_poll_master(void)
 
 void sync_task(void *arg)
 {
+    // Åö ãNìÆíºå„Ç…1âÒpull
+    if (g_config.is_slave) {
+        ESP_LOGI("sync", "initial pull");
+        presence_poll_master();
+    }
+
     while (1) {
 
         vTaskDelay(g_config.sync_interval * 1000 / portTICK_PERIOD_MS);
