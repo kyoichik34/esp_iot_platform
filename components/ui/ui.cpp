@@ -170,7 +170,7 @@ static void state_apply(const char *msg)
 
     ui_update(g_message);
 
-    if (!g_config.is_slave) {
+    if (g_config.send_update) {
         presence_send_update_all();
     }
 }

@@ -1,5 +1,5 @@
 idf_component_register(
     SRCS "main.c"
     INCLUDE_DIRS "."
-    REQUIRES config wifi ui LovyanGFX
+    REQUIRES config wifi ui presence LovyanGFX
 )

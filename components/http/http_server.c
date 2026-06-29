@@ -125,10 +125,11 @@ static esp_err_t update_handler(httpd_req_t *req)
     cJSON *status = cJSON_GetObjectItem(root, "status");
 
     if (cJSON_IsString(status) && status->valuestring) {
-        strncpy(g_message, status->valuestring, sizeof(g_message));
-        g_message[sizeof(g_message) - 1] = '\0';
-
-        ui_update(g_message);
+        if (strcmp(ui_get_status(), status->valuestring) != 0) {
+            strncpy(g_message, status->valuestring, sizeof(g_message));
+            g_message[sizeof(g_message) - 1] = '\0';
+            ui_update(g_message);
+        }
     }
 
     cJSON_Delete(root);
