@@ -77,6 +77,12 @@ static bool load_json(const char *json)
         }
     }
 
+    /* ===== is_slave ===== */
+    cJSON *is_slave = cJSON_GetObjectItem(root, "is_slave");
+    if (cJSON_IsBool(is_slave)) {
+        g_config.is_slave = cJSON_IsTrue(is_slave);
+    }
+
     /* ===== send_update ===== */
     cJSON *send_update = cJSON_GetObjectItem(root, "send_update");
     if (cJSON_IsBool(send_update)) {
