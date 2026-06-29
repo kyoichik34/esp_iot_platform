@@ -2,6 +2,8 @@
 #include "LGFX_ESP32S3_WT32_SC01_Plus.hpp"
 #include "wifi.h"
 #include "config.h"
+#include "presence.h"
+#include "http_server.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -124,16 +126,91 @@ static void draw_network(void)
     lcd.print(line2);
 }
 
+static void draw_buttons(void)
+{
+    int w = lcd.width();
+    int h = lcd.height();
+
+    int btn_w = w / 3;
+    int btn_h = 40;
+    int y = 0;
+
+    lcd.setTextSize(2);
+
+    // online
+    lcd.fillRect(0, y, btn_w, btn_h, TFT_GREEN);
+    lcd.setCursor(10, y + 10);
+    lcd.setTextColor(TFT_BLACK);
+    lcd.print("ONLINE");
+
+    // away
+    lcd.fillRect(btn_w, y, btn_w, btn_h, TFT_YELLOW);
+    lcd.setCursor(btn_w + 10, y + 10);
+    lcd.print("AWAY");
+
+    // busy
+    lcd.fillRect(btn_w * 2, y, btn_w, btn_h, TFT_RED);
+    lcd.setCursor(btn_w * 2 + 10, y + 10);
+    lcd.print("BUSY");
+}
 
 static void render_all(void)
 {
     lcd_clear();
 
     draw_center_text(g_ui_status);
-    draw_network();    // ← 分離
     draw_status();
+    draw_buttons();
 }
 
+static void state_apply(const char *msg)
+{
+    strncpy(g_message, msg, sizeof(g_message));
+    g_message[sizeof(g_message)-1] = '\0';
+
+    ui_update(g_message);
+
+    if (!g_config.is_slave) {
+        presence_send_update_all();
+    }
+}
+
+static void handle_touch(int x, int y)
+{
+    int w = lcd.width();
+    int h = lcd.height();
+
+    int btn_w = w / 3;
+    int y_top = 0;
+
+    if (y < y_top)
+        return;
+
+    if (x < btn_w) {
+        state_apply("ONLINE");
+    } else if (x < btn_w * 2) {
+        state_apply("AWAY");
+    } else {
+        state_apply("BUSY");
+    }
+}
+
+void touch_task(void *arg)
+{
+    while (1) {
+
+        uint16_t x, y;
+
+        if (lcd.getTouch(&x, &y)) {
+
+            ESP_LOGI("touch", "x=%d y=%d", x, y);
+
+            handle_touch(x, y);
+        }
+
+        vTaskDelay(50 / portTICK_PERIOD_MS);
+    }
+}
 
 /* ===== 初期化 ===== */
 void ui_init(void)
@@ -151,6 +228,16 @@ void ui_init(void)
     lcd.print("ESP32 Presence");
 
     draw_status();   // ★ここでも出す
+
+    xTaskCreate(
+        touch_task,
+        "touch_task",
+        4096,
+        NULL,
+        5,
+        NULL
+    );
+
 }
 
 /* ===== メッセージ表示 ===== */

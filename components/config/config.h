@@ -2,6 +2,10 @@
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* ===== ’è” ===== */
 #define MAX_MASTERS 5
 
@@ -45,3 +49,7 @@ extern bool config_valid;
 
 /* ===== API ===== */
 void config_init(void);
+
+#ifdef __cplusplus
+}
+#endif

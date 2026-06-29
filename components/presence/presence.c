@@ -1,6 +1,7 @@
 #include "presence.h"
 #include "config.h"
 #include "wifi.h"
+#include "http_server.h"
 
 #include "esp_log.h"
 #include "esp_http_client.h"
@@ -9,8 +10,6 @@
 #include <stdlib.h>
 
 static const char *TAG = "presence";
-
-extern char g_message[64];
 
 /* ===== shuffle ===== */
 static void shuffle(char masters[][64], int count)
