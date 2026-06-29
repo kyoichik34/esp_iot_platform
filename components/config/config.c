@@ -179,6 +179,7 @@ void config_init(void)
 
     /* ===== ÉçÉO ===== */
     ESP_LOGI(TAG, "hostname: %s", g_config.hostname);
+    ESP_LOGI(TAG, "is_slave: %d", g_config.is_slave);
     ESP_LOGI(TAG, "send_update: %d", g_config.send_update);
     ESP_LOGI(TAG, "master_count: %d", g_config.master_count);
 
