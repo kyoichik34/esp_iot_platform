@@ -26,6 +26,12 @@ extern int  g_ipv6_ready;
 /* ===== UI状態 ===== */
 static char g_ui_status[32] = "READY";
 
+const char *ui_status_str[] = {
+    "ONLINE",
+    "AWAY",
+    "BUSY"
+};
+
 /* ===== UIイベント ===== */
 typedef struct {
     char msg[32];
@@ -93,15 +99,15 @@ static void draw_buttons(void)
     lcd.fillRect(0, y, btn_w, 40, TFT_GREEN);
     lcd.setCursor(10, y + 10);
     lcd.setTextColor(TFT_BLACK);
-    lcd.print("ONLINE");
+    lcd.print(ui_status_str[STATUS_ONLINE]);
 
     lcd.fillRect(btn_w, y, btn_w, 40, TFT_YELLOW);
     lcd.setCursor(btn_w + 10, y + 10);
-    lcd.print("AWAY");
+    lcd.print(ui_status_str[STATUS_AWAY]);
 
     lcd.fillRect(btn_w * 2, y, btn_w, 40, TFT_RED);
     lcd.setCursor(btn_w * 2 + 10, y + 10);
-    lcd.print("BUSY");
+    lcd.print(ui_status_str[STATUS_BUSY]);
 }
 
 static void render_all(void)
@@ -164,13 +170,15 @@ static void handle_touch(int x, int y)
     int w = lcd.width();
     int btn_w = w / 3;
 
+    status_t g_status = STATUS_ONLINE;
     if (x < btn_w) {
-        state_apply("ONLINE");
+        g_status = STATUS_ONLINE;
     } else if (x < btn_w * 2) {
-        state_apply("AWAY");
+        g_status = STATUS_AWAY;
     } else {
-        state_apply("BUSY");
+        g_status = STATUS_BUSY;
     }
+    state_apply(ui_status_str[g_status]);
 }
 
 void touch_task(void *arg)

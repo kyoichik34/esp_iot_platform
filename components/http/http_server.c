@@ -12,7 +12,7 @@
 static const char *TAG = "http";
 
 /* ===== ó‘Ô ===== */
-char g_message[64] = "online";
+char g_message[64] = "READY";
 
 static esp_err_t root_handler(httpd_req_t *req)
 {
