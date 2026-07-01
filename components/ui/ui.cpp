@@ -40,6 +40,8 @@ typedef struct {
 static QueueHandle_t ui_queue;
 
 /* ===== 描画 ===== */
+#define BUTTON_Y      0
+#define BUTTON_H      40
 
 static void lcd_clear(void)
 {
@@ -76,13 +78,23 @@ static void draw_center_text(const char *text)
 {
     int screen_w = lcd.width();
     int screen_h = lcd.height();
+    const int text_h = 64;
 
-    lcd.setTextSize(3);
+    lcd.setTextSize(4.5);
     lcd.setTextColor(TFT_WHITE, TFT_BLACK);
 
     int text_w = lcd.textWidth(text);
     int x = (screen_w - text_w) / 2;
-    int y = (screen_h - 48) / 2;
+    int y = (screen_h - text_h) / 2;
+
+    // ★文字領域全体をクリア
+    lcd.fillRect(
+        0,
+        y - 10,
+        screen_w,
+        text_h + 20,
+        TFT_BLACK
+    );
 
     lcd.setCursor(x, y);
     lcd.print(text);
@@ -92,7 +104,7 @@ static void draw_buttons(void)
 {
     int w = lcd.width();
     int btn_w = w / 3;
-    int y = 0;
+    int y = BUTTON_Y;
 
     lcd.setTextSize(2);
 
@@ -164,13 +176,17 @@ static void state_apply(const char *msg)
 }
 
 /* ===== タッチ ===== */
-
 static void handle_touch(int x, int y)
 {
     int w = lcd.width();
     int btn_w = w / 3;
 
-    status_t g_status = STATUS_ONLINE;
+    if (y < BUTTON_Y || y >= (BUTTON_Y + BUTTON_H)) {
+        return;
+    }
+
+    status_t g_status;
+
     if (x < btn_w) {
         g_status = STATUS_ONLINE;
     } else if (x < btn_w * 2) {
@@ -178,9 +194,9 @@ static void handle_touch(int x, int y)
     } else {
         g_status = STATUS_BUSY;
     }
+
     state_apply(ui_status_str[g_status]);
 }
-
 void touch_task(void *arg)
 {
     while (1) {
