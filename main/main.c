@@ -29,7 +29,9 @@ void sync_task(void *arg)
         if (g_config.is_slave) {
             presence_poll_master();     // špull
         } else {
-            presence_send_update_all(); // šheartbeat
+            if (g_config.send_update) {
+                presence_send_update_all(); // šheartbeat
+            }
         }
     }
 }

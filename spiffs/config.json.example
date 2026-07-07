@@ -27,6 +27,11 @@
     "interval": 3600
   },
 
-  /* ===== DDNSÅiIPv6íºê⁄Åj ===== */
-  "ddns_target": "xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx"
+  /* ===== DDNS ===== */
+  "ddns": {
+    "host_key": "xxxx",
+    "url_east": "http://ddnsapi-v6.open.ad.jp/api/renew/",
+    "url_west": "http://update.p-ns.flets-west.jp/open/api/renew/",
+    "use_west_proxy": false
+  }
 }

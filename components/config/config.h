@@ -39,8 +39,10 @@ typedef struct {
     int  ntp_interval;     // •b
 
     /* ===== DDNS ===== */
-    char ddns_target[64];  // pingæ
-
+    char ddns_host_key[64];
+    char ddns_url_east[128];
+    char ddns_url_west[128];
+    bool ddns_use_west_proxy;
 } config_t;
 
 /* ===== ƒOƒ[ƒoƒ‹ ===== */

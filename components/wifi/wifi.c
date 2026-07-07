@@ -1,19 +1,19 @@
+#include <string.h>
+#include <stdio.h>
+
 #include "wifi.h"
 #include "config.h"
 #include "ui.h"
 #include "http_server.h"
 #include "presence.h"
 
-#include <string.h>
-#include <stdio.h>
-
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
+#include "esp_http_client.h"
 #include "esp_netif.h"
 #include "esp_netif_ip_addr.h"
 #include "lwip/inet.h"
-#include "ping/ping_sock.h"
 
 static const char *TAG = "wifi";
 
@@ -25,31 +25,49 @@ int g_ipv4_ready = 0;
 int g_ipv6_ready = 0;
 int g_rssi = 0;
 
+static char g_last_global_ipv6[64] = "";
+
 static esp_netif_t* s_netif = NULL;
 
 
-static void start_ping(void)
+static void ddns_update(void *arg)
 {
-    if (strlen(g_config.ddns_target) == 0)
-        return;
+    char url[256];
 
-    ip_addr_t target_addr;
-
-    if (ipaddr_aton(g_config.ddns_target, &target_addr) == 0) {
-        ESP_LOGE("ping", "Invalid IP");
+    if (strlen(g_config.ddns_host_key) == 0) {
+        ESP_LOGW(TAG, "DDNS host key not configured");
         return;
     }
+    /* 東日本URL/西日本プロキシURL切替 */
+    const char *base_url = g_config.ddns_use_west_proxy ?
+            g_config.ddns_url_west : g_config.ddns_url_east;
 
-    esp_ping_config_t ping_config = ESP_PING_DEFAULT_CONFIG();
-    ping_config.target_addr = target_addr;
-    ping_config.count = 3;
+    snprintf(url, sizeof(url), "%s?%s", base_url, g_config.ddns_host_key);
 
-    esp_ping_handle_t ping;
+    ESP_LOGI(TAG, "DDNS UPDATE: %s", url);
 
-    esp_ping_new_session(&ping_config, NULL, &ping);
-    esp_ping_start(ping);
 
-    ESP_LOGI("ping", "Ping: %s", g_config.ddns_target);
+   esp_http_client_config_t config = {
+        .url = url,
+        .method = HTTP_METHOD_GET,
+        .timeout_ms = 5000,
+    };
+
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_err_t err = esp_http_client_perform(client);
+
+    if (err == ESP_OK) {
+        int status = esp_http_client_get_status_code(client);
+        ESP_LOGI(TAG, "DDNS status=%d", status);
+    }
+    else {
+        ESP_LOGE(TAG, "DDNS update failed");
+    }
+
+    esp_http_client_cleanup(client);
+
+    /* task関数なので必ずDeleteすること */
+    vTaskDelete(NULL);
 }
 
 static void handler(void* arg,
@@ -102,11 +120,6 @@ static void handler(void* arg,
         /* 初回のみ */
         if (!ready_sent) {
             ui_update("READY");
-
-        if (!g_config.is_slave) {
-            presence_send_update_all();   // ★ここもOK
-        }
-
             ready_sent = 1;
         }
 
@@ -136,10 +149,10 @@ static void handler(void* arg,
                  IPV62STR(e->ip6_info.ip), type);
 
         if (type == ESP_IP6_ADDR_IS_GLOBAL) {
+            strncpy(g_last_global_ipv6, g_ipv6_str, sizeof(g_last_global_ipv6));
+            g_last_global_ipv6[sizeof(g_last_global_ipv6) - 1] = '\0';
 
-            snprintf(g_ipv6_str, sizeof(g_ipv6_str),
-                     IPV6STR,
-                     IPV62STR(e->ip6_info.ip));
+            snprintf(g_ipv6_str, sizeof(g_ipv6_str), IPV6STR, IPV62STR(e->ip6_info.ip));
 
             g_ipv6_ready = 1;
 
@@ -149,8 +162,15 @@ static void handler(void* arg,
                 ready_sent = 1;
             }
 
+            if (strcmp(g_last_global_ipv6, g_ipv6_str) == 0) {
+                ESP_LOGI(TAG, "IPv6 unchanged. Skip DDNS update.");
+                return;
+            }
 
-            start_ping();
+            ESP_LOGI(TAG, "IPv6 changed: %s -> %s DDNS update required.", g_last_global_ipv6, g_ipv6_str);
+
+            /* ブロックしない */
+            xTaskCreate(ddns_update, "ddns_update_task", 4096, NULL, 5, NULL);
 
             ui_update_network();
         }

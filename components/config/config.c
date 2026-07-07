@@ -36,8 +36,11 @@ static void set_default(void)
     strcpy(g_config.ntp_server, "ntp.nict.jp");
     g_config.ntp_interval = 3600;
 
-    /* DDNS */
-    strcpy(g_config.ddns_target, "");
+    /* DDNS *//* DDNS */
+    strcpy(g_config.ddns_host_key, "");
+    strcpy(g_config.ddns_url_east, "http://ddnsapi-v6.open.ad.jp/api/renew/");
+    strcpy(g_config.ddns_url_west, "http://update.p-ns.flets-west.jp/open/api/renew/");
+    g_config.ddns_use_west_proxy = false;
 }
 
 /* ===== JSON‰ðÍ ===== */
@@ -136,11 +139,34 @@ static bool load_json(const char *json)
     }
 
     /* ===== DDNS ===== */
-    cJSON *ddns = cJSON_GetObjectItem(root, "ddns_target");
-    if (cJSON_IsString(ddns)) {
-        strncpy(g_config.ddns_target,
-                ddns->valuestring,
-                sizeof(g_config.ddns_target) - 1);
+    cJSON *ddns = cJSON_GetObjectItem(root, "ddns");
+    if (ddns) {
+        cJSON *key =
+            cJSON_GetObjectItem(ddns, "host_key");
+        if (cJSON_IsString(key)) {
+            strncpy(g_config.ddns_host_key, key->valuestring,
+            sizeof(g_config.ddns_host_key) - 1);
+        }
+
+        cJSON *east =
+            cJSON_GetObjectItem(ddns, "url_east");
+        if (cJSON_IsString(east)) {
+            strncpy(g_config.ddns_url_east, east->valuestring,
+            sizeof(g_config.ddns_url_east) - 1);
+        }
+
+        cJSON *west =
+            cJSON_GetObjectItem(ddns, "url_west");
+        if (cJSON_IsString(west)) {
+            strncpy(g_config.ddns_url_west, west->valuestring,
+            sizeof(g_config.ddns_url_west) - 1);
+        }
+
+        cJSON *proxy =
+            cJSON_GetObjectItem(ddns, "use_west_proxy");
+        if (cJSON_IsBool(proxy)) {
+            g_config.ddns_use_west_proxy = cJSON_IsTrue(proxy);
+        }
     }
 
     cJSON_Delete(root);
@@ -189,5 +215,10 @@ void config_init(void)
 
     ESP_LOGI(TAG, "SSID: %s", g_config.wifi.ssid);
     ESP_LOGI(TAG, "PASS: %s", g_config.wifi.password);
+
+    ESP_LOGI(TAG, "DDNS key   : %s", g_config.ddns_host_key);
+    ESP_LOGI(TAG, "DDNS east  : %s", g_config.ddns_url_east);
+    ESP_LOGI(TAG, "DDNS west  : %s", g_config.ddns_url_west);
+    ESP_LOGI(TAG, "DDNS proxy : %d", g_config.ddns_use_west_proxy);
 }
 
