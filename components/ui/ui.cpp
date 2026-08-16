@@ -1,8 +1,8 @@
+#include "presence.h"
 #include "ui.h"
 #include "LGFX_ESP32S3_WT32_SC01_Plus.hpp"
 #include "wifi.h"
 #include "config.h"
-#include "presence.h"
 #include "http_server.h"
 
 #include <stdio.h>
@@ -24,20 +24,19 @@ extern int  g_ipv4_ready;
 extern int  g_ipv6_ready;
 
 /* ===== UI状態 ===== */
-static char g_ui_status[32] = "READY";
-
 const char *ui_status_str[] = {
-    "ONLINE",
-    "AWAY",
-    "BUSY"
+    "待機中",
+    "在席中",
+    "退席中",
+    "移動中"
 };
 
 /* ===== UIイベント ===== */
-typedef struct {
-    char msg[32];
-} ui_event_t;
-
 static QueueHandle_t ui_queue;
+static presence_state_t state_render = {
+    .status = STATUS_READY,
+    .comment = ""
+};
 
 /* ===== 描画 ===== */
 #define BUTTON_Y      0
@@ -97,26 +96,30 @@ static void draw_center_text(const char *text)
 
     int screen_w = lcd.width();
     int screen_h = lcd.height();
-    const int text_h = 50;
+    const int text_h = 48;
 
-    lcd.setTextSize(4.5);
+    lcd.setFont(&fonts::lgfxJapanGothic_24);
+    lcd.setTextSize(3);
     lcd.setTextColor(TFT_WHITE, TFT_BLACK);
 
     int text_w = lcd.textWidth(text);
     int x = (screen_w - text_w) / 2;
     int y = (screen_h - text_h) / 2;
+    y = BUTTON_H + 24;
 
     // ★文字領域全体をクリア
     lcd.fillRect(
         0,
-        y - 10,
+        y,
         screen_w,
-        text_h + 20,
+        text_h + 10,
         TFT_BLACK
     );
 
     lcd.setCursor(x, y);
     lcd.print(text);
+
+    lcd.setFont(nullptr);
 }
 
 static void draw_comment(const char *comment)
@@ -128,11 +131,11 @@ static void draw_comment(const char *comment)
     int screen_h = lcd.height();
 
     lcd.setFont(&fonts::lgfxJapanGothic_24);
-    lcd.setTextSize(2);
+    lcd.setTextSize(2.5);
     lcd.setTextColor(TFT_CYAN, TFT_BLACK);
 
     /* 状態表示の少し下 */
-    int y = (screen_h / 2) + 10;
+    int y = (screen_h / 2);
 
     /* コメント領域だけ消す */
     lcd.fillRect(
@@ -153,7 +156,6 @@ static void draw_comment(const char *comment)
     lcd.print(comment);
 
     lcd.setFont(nullptr);
-
 }
 
 static void draw_buttons(void)
@@ -162,43 +164,42 @@ static void draw_buttons(void)
     int btn_w = w / 3;
     int y = BUTTON_Y;
 
-    lcd.setTextSize(2);
+    // lcd.setTextSize(2);
+    lcd.setFont(&fonts::efontJA_24);
+    lcd.setTextSize(1.2);
 
     lcd.fillRect(0, y, btn_w, 40, TFT_GREEN);
-    lcd.setCursor(10, y + 10);
+    lcd.setCursor(10, y + 8);
     lcd.setTextColor(TFT_BLACK);
     lcd.print(ui_status_str[STATUS_ONLINE]);
 
     lcd.fillRect(btn_w, y, btn_w, 40, TFT_YELLOW);
-    lcd.setCursor(btn_w + 10, y + 10);
+    lcd.setCursor(btn_w + 10, y + 8);
     lcd.print(ui_status_str[STATUS_AWAY]);
 
     lcd.fillRect(btn_w * 2, y, btn_w, 40, TFT_RED);
-    lcd.setCursor(btn_w * 2 + 10, y + 10);
+    lcd.setCursor(btn_w * 2 + 10, y + 8);
     lcd.print(ui_status_str[STATUS_BUSY]);
+
+    lcd.setFont(nullptr);
 }
 
 static void render_all(void)
 {
     lcd_clear();
-    draw_center_text(g_presence.status);
-    draw_comment(g_presence.comment);
+    if( state_render.status < STATUS_MAX)
+        draw_center_text(ui_status_str[state_render.status]);
+    draw_comment(state_render.comment);
     draw_status();
     draw_buttons();
 }
 
 /* ===== UIタスク ===== */
-
 static void ui_task(void *arg)
 {
-    ui_event_t ev;
-
     while (1) {
-        if (xQueueReceive(ui_queue, &ev, portMAX_DELAY)) {
-
-            ESP_LOGI(TAG, "ui_event: %s", ev.msg);
-            snprintf(g_ui_status, sizeof(g_ui_status), "%s", ev.msg);
-
+        if (xQueueReceive(ui_queue, &state_render, portMAX_DELAY)) {
+            ESP_LOGI(TAG, "ui_status: %d, comment: %s", state_render.status, state_render.comment);
             render_all();
         }
     }
@@ -206,30 +207,23 @@ static void ui_task(void *arg)
 
 /* ===== API ===== */
 
-void ui_update(const char *msg)
+void ui_update(presence_state_t *status)
 {
-    ui_event_t ev;
-
-    strncpy(ev.msg, msg, sizeof(ev.msg));
-    ev.msg[sizeof(ev.msg)-1] = '\0';
-
-    xQueueSend(ui_queue, &ev, 0);
+    xQueueSend(ui_queue, status, 0);
 }
 
 /* ===== 状態適用 ===== */
 
-static void state_apply(const char *msg)
+static void state_apply(status_t status)
 {
-    strncpy(g_presence.status, msg, sizeof(g_presence.status));
-    g_presence.status[sizeof(g_presence.status) - 1] = '\0';
-
-    ui_update(g_presence.status);
+    g_presence.status = status;
+    ui_update(&g_presence);
 
     if (g_config.send_update) {
         presence_send_update_all_with();
-        ESP_LOGI(TAG, "send_update : %s", msg);
+        ESP_LOGI(TAG, "send_update : %d", g_presence.status);
     }
-}
+}	
 
 /* ===== タッチ ===== */
 static void handle_touch(int x, int y)
@@ -241,17 +235,17 @@ static void handle_touch(int x, int y)
         return;
     }
 
-    status_t g_status;
+    status_t status;
 
     if (x < btn_w) {
-        g_status = STATUS_ONLINE;
+        status = STATUS_ONLINE;
     } else if (x < btn_w * 2) {
-        g_status = STATUS_AWAY;
+        status = STATUS_AWAY;
     } else {
-        g_status = STATUS_BUSY;
+        status = STATUS_BUSY;
     }
 
-    state_apply(ui_status_str[g_status]);
+    state_apply(status);
 }
 void touch_task(void *arg)
 {
@@ -278,22 +272,9 @@ void ui_init(void)
     lcd.setRotation(1);
     lcd.setTextColor(TFT_WHITE, TFT_BLACK);
 
-    ui_queue = xQueueCreate(8, sizeof(ui_event_t));
+    ui_queue = xQueueCreate(4, sizeof(presence_state_t));
+    ui_update(&g_presence);
     xTaskCreate(ui_task, "ui_task", 4096, NULL, 5, NULL);
     xTaskCreate(touch_task, "touch_task", 4096, NULL, 5, NULL);
-
-    ui_update("BOOT");
 }
 
-/* ===== ネットワーク表示 ===== */
-void ui_update_network(void)
-{
-    render_all();  // ★状態変えず再描画だけ
-}
-
-/* ===== getter ===== */
-
-const char* ui_get_status(void)
-{
-    return g_ui_status;
-}

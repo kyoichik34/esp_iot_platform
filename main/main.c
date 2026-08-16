@@ -2,8 +2,8 @@
 
 #include "config.h"
 #include "wifi.h"
-#include "ui.h"
 #include "presence.h"
+#include "ui.h"
 
 #include "nvs_flash.h"
 #include "esp_spiffs.h"
@@ -38,6 +38,11 @@ void sync_task(void *arg)
 
 void app_main(void)
 {
+    presence_state_t init_status = {
+        .status = STATUS_READY,
+        .comment = "ERROR"
+    };
+
     nvs_flash_init();
 
     spiffs_init();
@@ -46,18 +51,20 @@ void app_main(void)
 
     if (!config_valid) {
         ESP_LOGE("main", "CONFIG ERROR");
-        ui_update("CONFIG ERROR");
+        ui_update(&init_status);
         while (1) {
             vTaskDelay(1000 / portTICK_PERIOD_MS);
         }
     }
 
     ui_init();
-    ui_update("Booting...");
+    strncpy(init_status.comment, "Booting...", sizeof(init_status.comment) - 1);
+    ui_update(&init_status);
 
     wifi_init_sta();
 
-    ui_update("WiFi connecting...");
+    strncpy(init_status.comment, "WiFi connecting...", sizeof(init_status.comment) - 1);
+    ui_update(&init_status);
 
     xTaskCreate(
         sync_task,        // ä÷êî

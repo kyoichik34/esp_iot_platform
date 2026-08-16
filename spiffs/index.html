@@ -25,6 +25,10 @@ button {
     margin: 5px;
     font-size: 16px;
 }
+#commentInput {
+    font-size: 16px;
+    width: 90%;
+}
 </style>
 
 </head>
@@ -46,9 +50,9 @@ button {
 
 <div class="box">
     <h2>Set Status</h2>
-    <button onclick="setStatus('ONLINE')">Online</button>
-    <button onclick="setStatus('AWAY')">Away</button>
-    <button onclick="setStatus('BUSY')">Busy</button>
+    <button onclick="setStatus(STATUS_ONLINE)">在席中</button>
+    <button onclick="setStatus(STATUS_AWAY)">退席中</button>
+    <button onclick="setStatus(STATUS_BUSY)">移動中</button>
 <input
     type="text"
     id="commentInput"
@@ -57,14 +61,28 @@ button {
 </div>
 <script>
 
+const STATUS_ONLINE = 1;
+const STATUS_AWAY   = 2;
+const STATUS_BUSY   = 3;
+let currentStatus = 0;
+
+const statusText = [
+    "待機中",
+    "在席中",
+    "退席中",
+    "取り込み中"
+];
+
 /* ===== 取得 ===== */
 async function fetchState() {
     try {
         const res = await fetch('/state');
         const data = await res.json();
 
+        currentStatus = data.status;
+
         document.getElementById('status').textContent =
-            "Status: " + data.status;
+            "Status: " + (statusText[data.status] ?? "不明");
 
         document.getElementById("comment").textContent =
             "Comment:" + data.comment;
@@ -84,6 +102,14 @@ async function fetchState() {
         document.getElementById('uptime').textContent =
             "Uptime: " + data.uptime + "s";
 
+        /* コメント編集中でなければ同期 */
+        if (document.activeElement !==
+            document.getElementById("commentInput"))
+        {
+            document.getElementById("commentInput").value =
+                data.comment ?? "";
+        }
+
     } catch (e) {
         console.error("fetch error", e);
     }
@@ -91,6 +117,7 @@ async function fetchState() {
 
 /* ===== 変更 ===== */
 async function setStatus(status) {
+    currentStatus = status;
     try {
         await fetch('/state', {
             method: 'POST',
@@ -106,10 +133,33 @@ async function setStatus(status) {
 
         });
 
-        fetchState(); // XV
+        fetchState();
 
     } catch (e) {
         console.error("post error", e);
+    }
+}
+
+async function updateComment()
+{
+    try {
+        await fetch('/state', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                status: currentStatus,
+                comment:
+                    document.getElementById(
+                        "commentInput").value
+            })
+        });
+
+        fetchState();
+
+    } catch (e) {
+        console.error("comment error", e);
     }
 }
 
@@ -118,6 +168,19 @@ setInterval(fetchState, 2000);
 
 /*  */
 fetchState();
+
+document.getElementById("commentInput")
+    .addEventListener(
+        "keydown",
+        function(e)
+        {
+            if (e.key === "Enter")
+            {
+                e.preventDefault();
+                updateComment();
+            }
+        }
+    );
 
 </script>
 

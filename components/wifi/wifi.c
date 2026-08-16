@@ -3,9 +3,9 @@
 
 #include "wifi.h"
 #include "config.h"
-#include "ui.h"
 #include "http_server.h"
 #include "presence.h"
+#include "ui.h"
 
 #include "esp_wifi.h"
 #include "esp_event.h"
@@ -97,7 +97,8 @@ static void handler(void* arg,
             ESP_LOGW(TAG, "disconnect reason=%d", e->reason);
 
             ready_sent = 0;
-            ui_update("Disconnected");
+            strncpy(g_presence.comment, "Disconnected", sizeof(g_presence.comment) - 1);
+            ui_update(&g_presence);
 
             esp_wifi_connect();
         }
@@ -119,7 +120,8 @@ static void handler(void* arg,
 
         /* èââÒÇÃÇ› */
         if (!ready_sent) {
-            ui_update("READY");
+            memset(g_presence.comment, '\0', sizeof(g_presence.comment));
+            ui_update(&g_presence);
             ready_sent = 1;
         }
 
@@ -158,7 +160,8 @@ static void handler(void* arg,
 
             ESP_LOGI(TAG, "IPv6 READY");
             if (!ready_sent) {
-                ui_update("READY");
+                memset(g_presence.comment, '\0', sizeof(g_presence.comment));
+                ui_update(&g_presence);
                 ready_sent = 1;
             }
 
@@ -172,7 +175,7 @@ static void handler(void* arg,
             /* ÉuÉçÉbÉNÇµÇ»Ç¢ */
             xTaskCreate(ddns_update, "ddns_update_task", 4096, NULL, 5, NULL);
 
-            ui_update_network();
+            ui_update(&g_presence);
         }
     }
 }

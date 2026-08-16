@@ -18,7 +18,7 @@ static const char *TAG = "presence";
 static int64_t g_last_send_time = 0;
 
 presence_state_t g_presence = {
-    .status = "READY",
+    .status = STATUS_ONLINE,
     .comment = ""
 };
 
@@ -57,20 +57,16 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
             cJSON *status = cJSON_GetObjectItem(root, "status");
             cJSON *comment = cJSON_GetObjectItem(root, "comment");
 
-            if (cJSON_IsString(status) && status->valuestring) {
-                if (strcmp(ui_get_status(), status->valuestring) != 0) {
-                    strncpy(g_presence.status, status->valuestring, sizeof(g_presence.status) - 1);
-                    g_presence.status[sizeof(g_presence.status) - 1] = '\0';
-                }
+            if (cJSON_IsNumber(status)) {
+                g_presence.status = status->valueint;
             }
 
             if (cJSON_IsString(comment) && comment->valuestring) {
                 strncpy(g_presence.comment, comment->valuestring, sizeof(g_presence.comment) - 1);
             }
-
-            ui_update(g_presence.status);
-
             cJSON_Delete(root);
+
+            ui_update(&g_presence);
         }
     }
 
@@ -95,7 +91,7 @@ void presence_send_update_all_with()
     snprintf(json, sizeof(json),
         "{"
         "\"hostname\":\"%s\","
-        "\"status\":\"%s\","
+        "\"status\":\"%d\","
         "\"comment\":\"%s\""
         "}",
         g_config.hostname,

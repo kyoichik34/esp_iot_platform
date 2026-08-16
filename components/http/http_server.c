@@ -3,9 +3,9 @@
 #include "esp_timer.h"
 
 #include "config.h"
-#include "ui.h"
 #include "wifi.h"
 #include "presence.h"
+#include "ui.h"
 
 #include "cJSON.h"
 
@@ -57,7 +57,7 @@ static esp_err_t state_get_handler(httpd_req_t *req)
              "\"ipv4_ready\":%d,"
              "\"ipv6\":\"%s\","
              "\"ipv6_ready\":%d,"
-             "\"status\":\"%s\",",
+             "\"status\":\"%d\",",
              g_ipv4_str,
              g_ipv4_ready,
              g_ipv6_str,
@@ -99,20 +99,19 @@ static esp_err_t state_post_handler(httpd_req_t *req)
     cJSON *status = cJSON_GetObjectItem(root, "status");
     cJSON *comment = cJSON_GetObjectItem(root, "comment");
 
-    if (cJSON_IsString(status)) {
-        strncpy(g_presence.status, status->valuestring, sizeof(g_presence.status) - 1);
-        g_presence.status[sizeof(g_presence.status) - 1] = '\0';
-        ui_update(g_presence.status);
+    if (cJSON_IsNumber(status)) {
+        g_presence.status = status->valueint;
     }
 
     if (cJSON_IsString(comment)) {
         strncpy(g_presence.comment, comment->valuestring, sizeof(g_presence.comment) - 1);
         g_presence.comment[sizeof(g_presence.comment) - 1] = '\0';
     }
-
     cJSON_Delete(root);
 
     httpd_resp_sendstr(req, "OK");
+
+    ui_update(&g_presence);
 
     return ESP_OK;
 }
@@ -135,24 +134,20 @@ static esp_err_t update_handler(httpd_req_t *req)
     cJSON *status = cJSON_GetObjectItem(root, "status");
     cJSON *comment = cJSON_GetObjectItem(root, "comment");
 
-    if (cJSON_IsString(status) && status->valuestring) {
-        if (strcmp(ui_get_status(), status->valuestring) != 0) {
-            strncpy(g_presence.status, status->valuestring, sizeof(g_presence.status));
-            g_presence.status[sizeof(g_presence.status) - 1] = '\0';
-            ui_update(g_presence.status);
-        }
+    if (cJSON_IsNumber(status)) {
+        g_presence.status = status->valueint;
     }
 
-    if (cJSON_IsString(comment)&& comment->valuestring ) {
-        strncpy(g_presence.comment,
-            comment->valuestring,
-            sizeof(g_presence.comment)-1);
+    if (cJSON_IsString(comment)&& comment->valuestring) {
+        strncpy(g_presence.comment, comment->valuestring, sizeof(g_presence.comment) - 1);
         g_presence.comment[sizeof(g_presence.comment) - 1] = '\0';
     }
-
     cJSON_Delete(root);
 
     httpd_resp_sendstr(req, "OK");
+
+    ui_update(&g_presence);
+
     return ESP_OK;
 }
 
