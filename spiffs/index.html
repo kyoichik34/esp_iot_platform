@@ -36,6 +36,7 @@ button {
 <div class="box">
     <h2>Status</h2>
     <div id="status">--</div>
+    <div id="comment"></div>
     <div id="hostname"></div>
     <div id="ipv4"></div>
     <div id="ipv6"></div>
@@ -48,11 +49,15 @@ button {
     <button onclick="setStatus('ONLINE')">Online</button>
     <button onclick="setStatus('AWAY')">Away</button>
     <button onclick="setStatus('BUSY')">Busy</button>
+<input
+    type="text"
+    id="commentInput"
+    maxlength="120"
+    placeholder="コメントを入力">
 </div>
-
 <script>
 
-/* ===== Ԏ擾 ===== */
+/* ===== 取得 ===== */
 async function fetchState() {
     try {
         const res = await fetch('/state');
@@ -60,6 +65,9 @@ async function fetchState() {
 
         document.getElementById('status').textContent =
             "Status: " + data.status;
+
+        document.getElementById("comment").textContent =
+            "Comment:" + data.comment;
 
         document.getElementById('hostname').textContent =
             "Host: " + data.hostname;
@@ -81,8 +89,8 @@ async function fetchState() {
     }
 }
 
-/* ===== ԕύX ===== */
-async function setStatus(msg) {
+/* ===== 変更 ===== */
+async function setStatus(status) {
     try {
         await fetch('/state', {
             method: 'POST',
@@ -90,8 +98,12 @@ async function setStatus(msg) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                message: msg
+                status: status,
+                comment:
+                    document.getElementById(
+                        "commentInput").value
             })
+
         });
 
         fetchState(); // XV
@@ -101,10 +113,10 @@ async function setStatus(msg) {
     }
 }
 
-/* ===== XV ===== */
+/* =====  ===== */
 setInterval(fetchState, 2000);
 
-/* 񃍁[h */
+/*  */
 fetchState();
 
 </script>

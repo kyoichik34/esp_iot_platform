@@ -53,32 +53,51 @@ static void draw_status(void)
     int width  = lcd.width();
     int height = lcd.height();
 
-    char line1[96];
-    char line2[96];
-    char line3[96];
-
-    snprintf(line1, sizeof(line1), "%s", g_config.hostname);
-    snprintf(line2, sizeof(line2), "v4:%s", g_ipv4_ready ? g_ipv4_str : "-");
-    snprintf(line3, sizeof(line3), "v6:%s", g_ipv6_ready ? g_ipv6_str : "-");
+    char line1[128];
+    snprintf(line1, sizeof(line1),
+             "%s",
+             g_config.hostname);
 
     lcd.setTextSize(1.8);
     lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
 
-    lcd.setCursor(width - lcd.textWidth(line1), height - 80);
+    /*
+     * 1行目
+     * hostname 左
+     * IPv4 右
+     */
+    lcd.setCursor(0, height - 40);
+    lcd.print(line1);
+    snprintf(line1, sizeof(line1),
+             "%s",
+             g_ipv4_ready ? g_ipv4_str : "[IPv4 is not available]");
+
+    int ipv4_w = lcd.textWidth(line1);
+    lcd.setCursor(width - ipv4_w,
+                  height - 40);
     lcd.print(line1);
 
-    lcd.setCursor(width - lcd.textWidth(line2), height - 60);
-    lcd.print(line2);
-
-    lcd.setCursor(width - lcd.textWidth(line3), height - 40);
-    lcd.print(line3);
+    /*
+     * 2行目
+     * IPv6 全幅
+     */
+    snprintf(line1, sizeof(line1),
+             "%s",
+             g_ipv6_ready ? g_ipv6_str : "IPv6 is not available");
+    int ipv6_w = lcd.textWidth(line1);
+    lcd.setCursor(width - ipv6_w,
+                  height - 20);
+    lcd.print(line1);
 }
 
 static void draw_center_text(const char *text)
 {
+    if (text == NULL)
+        return;
+
     int screen_w = lcd.width();
     int screen_h = lcd.height();
-    const int text_h = 64;
+    const int text_h = 50;
 
     lcd.setTextSize(4.5);
     lcd.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -98,6 +117,43 @@ static void draw_center_text(const char *text)
 
     lcd.setCursor(x, y);
     lcd.print(text);
+}
+
+static void draw_comment(const char *comment)
+{
+    if (comment == NULL)
+        return;
+
+    int screen_w = lcd.width();
+    int screen_h = lcd.height();
+
+    lcd.setFont(&fonts::lgfxJapanGothic_24);
+    lcd.setTextSize(2);
+    lcd.setTextColor(TFT_CYAN, TFT_BLACK);
+
+    /* 状態表示の少し下 */
+    int y = (screen_h / 2) + 10;
+
+    /* コメント領域だけ消す */
+    lcd.fillRect(
+        0,
+        y - 4,
+        screen_w,
+        60,
+        TFT_BLACK
+    );
+
+    int text_w = lcd.textWidth(comment);
+    int x = (screen_w - text_w) / 2;
+
+    if (x < 0)
+        x = 0;
+
+    lcd.setCursor(x, y);
+    lcd.print(comment);
+
+    lcd.setFont(nullptr);
+
 }
 
 static void draw_buttons(void)
@@ -125,7 +181,8 @@ static void draw_buttons(void)
 static void render_all(void)
 {
     lcd_clear();
-    draw_center_text(g_ui_status);
+    draw_center_text(g_presence.status);
+    draw_comment(g_presence.comment);
     draw_status();
     draw_buttons();
 }
@@ -140,7 +197,6 @@ static void ui_task(void *arg)
         if (xQueueReceive(ui_queue, &ev, portMAX_DELAY)) {
 
             ESP_LOGI(TAG, "ui_event: %s", ev.msg);
-
             snprintf(g_ui_status, sizeof(g_ui_status), "%s", ev.msg);
 
             render_all();
@@ -164,13 +220,13 @@ void ui_update(const char *msg)
 
 static void state_apply(const char *msg)
 {
-    strncpy(g_message, msg, sizeof(g_message));
-    g_message[sizeof(g_message)-1] = '\0';
+    strncpy(g_presence.status, msg, sizeof(g_presence.status));
+    g_presence.status[sizeof(g_presence.status) - 1] = '\0';
 
-    ui_update(g_message);
+    ui_update(g_presence.status);
 
     if (g_config.send_update) {
-        presence_send_update_all_with(msg);
+        presence_send_update_all_with();
         ESP_LOGI(TAG, "send_update : %s", msg);
     }
 }
@@ -223,9 +279,7 @@ void ui_init(void)
     lcd.setTextColor(TFT_WHITE, TFT_BLACK);
 
     ui_queue = xQueueCreate(8, sizeof(ui_event_t));
-
     xTaskCreate(ui_task, "ui_task", 4096, NULL, 5, NULL);
-
     xTaskCreate(touch_task, "touch_task", 4096, NULL, 5, NULL);
 
     ui_update("BOOT");

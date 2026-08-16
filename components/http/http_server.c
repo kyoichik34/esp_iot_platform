@@ -11,8 +11,6 @@
 
 static const char *TAG = "http";
 
-/* ===== ó‘Ô ===== */
-char g_message[64] = "READY";
 
 static esp_err_t root_handler(httpd_req_t *req)
 {
@@ -43,32 +41,44 @@ static esp_err_t root_handler(httpd_req_t *req)
 static esp_err_t state_get_handler(httpd_req_t *req)
 {
     int uptime = esp_log_timestamp() / 1000;
+    char resp[256];
 
-    char resp[512];
+    httpd_resp_set_type(req, "application/json");
+
+    snprintf(resp,
+         sizeof(resp),
+         "{"
+         "\"hostname\":\"%s\",",
+         g_config.hostname);
+    httpd_resp_send_chunk(req, resp, HTTPD_RESP_USE_STRLEN);
 
     snprintf(resp, sizeof(resp),
-             "{"
-             "\"hostname\":\"%s\","
              "\"ipv4\":\"%s\","
              "\"ipv4_ready\":%d,"
              "\"ipv6\":\"%s\","
              "\"ipv6_ready\":%d,"
-             "\"status\":\"%s\","
-             "\"rssi\":%d,"
-             "\"uptime\":%d"
-             "}",
-             g_config.hostname,
+             "\"status\":\"%s\",",
              g_ipv4_str,
              g_ipv4_ready,
              g_ipv6_str,
              g_ipv6_ready,
-             g_message,
+             g_presence.status
+    );
+    httpd_resp_send_chunk(req, resp, HTTPD_RESP_USE_STRLEN);
+
+    snprintf(resp, sizeof(resp), "\"comment\":\"%s\",", g_presence.comment);
+    httpd_resp_send_chunk(req, resp, HTTPD_RESP_USE_STRLEN);
+
+    snprintf(resp, sizeof(resp),
+             "\"rssi\":%d,"
+             "\"uptime\":%d"
+             "}",
              g_rssi,
              uptime
     );
 
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send_chunk(req, resp, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send_chunk(req, NULL, 0);
 
     return ESP_OK;
 }
@@ -86,18 +96,18 @@ static esp_err_t state_post_handler(httpd_req_t *req)
     cJSON *root = cJSON_Parse(buf);
     if (!root) return ESP_FAIL;
 
-    cJSON *msg = cJSON_GetObjectItem(root, "message");
+    cJSON *status = cJSON_GetObjectItem(root, "status");
+    cJSON *comment = cJSON_GetObjectItem(root, "comment");
 
-    if (cJSON_IsString(msg) && msg->valuestring) {
+    if (cJSON_IsString(status)) {
+        strncpy(g_presence.status, status->valuestring, sizeof(g_presence.status) - 1);
+        g_presence.status[sizeof(g_presence.status) - 1] = '\0';
+        ui_update(g_presence.status);
+    }
 
-        strncpy(g_message, msg->valuestring, sizeof(g_message));
-        g_message[sizeof(g_message)-1] = '\0';
-
-        ui_update(g_message);
-
-        if (g_config.send_update) {
-            presence_send_update_all_with(g_message);   // š‚±‚±d—v
-        }
+    if (cJSON_IsString(comment)) {
+        strncpy(g_presence.comment, comment->valuestring, sizeof(g_presence.comment) - 1);
+        g_presence.comment[sizeof(g_presence.comment) - 1] = '\0';
     }
 
     cJSON_Delete(root);
@@ -123,13 +133,21 @@ static esp_err_t update_handler(httpd_req_t *req)
     if (!root) return ESP_FAIL;
 
     cJSON *status = cJSON_GetObjectItem(root, "status");
+    cJSON *comment = cJSON_GetObjectItem(root, "comment");
 
     if (cJSON_IsString(status) && status->valuestring) {
         if (strcmp(ui_get_status(), status->valuestring) != 0) {
-            strncpy(g_message, status->valuestring, sizeof(g_message));
-            g_message[sizeof(g_message) - 1] = '\0';
-            ui_update(g_message);
+            strncpy(g_presence.status, status->valuestring, sizeof(g_presence.status));
+            g_presence.status[sizeof(g_presence.status) - 1] = '\0';
+            ui_update(g_presence.status);
         }
+    }
+
+    if (cJSON_IsString(comment)&& comment->valuestring ) {
+        strncpy(g_presence.comment,
+            comment->valuestring,
+            sizeof(g_presence.comment)-1);
+        g_presence.comment[sizeof(g_presence.comment) - 1] = '\0';
     }
 
     cJSON_Delete(root);

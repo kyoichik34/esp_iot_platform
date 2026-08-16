@@ -17,6 +17,11 @@ static const char *TAG = "presence";
 
 static int64_t g_last_send_time = 0;
 
+presence_state_t g_presence = {
+    .status = "READY",
+    .comment = ""
+};
+
 /* ===== shuffle ===== */
 static void shuffle(char masters[][64], int count)
 {
@@ -28,30 +33,6 @@ static void shuffle(char masters[][64], int count)
         strcpy(masters[i], masters[j]);
         strcpy(masters[j], tmp);
     }
-}
-
-/* ===== 送信 ===== */
-static void send_one(const char *host)
-{
-    char url[128];
-    snprintf(url, sizeof(url),
-             "http://%s/update", host);
-    char body[128];
-    snprintf(body, sizeof(body),
-             "{\"hostname\":\"%s\",\"status\":\"%s\"}",
-             g_config.hostname,
-             g_message);
-    ESP_LOGI(TAG, "send -> %s", host);
-    esp_http_client_config_t config = {
-        .url = url,
-        .method = HTTP_METHOD_POST,
-        .timeout_ms = 1000,
-    };
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    esp_http_client_set_header(client, "Content-Type", "application/json");
-    esp_http_client_set_post_field(client, body, strlen(body));
-    esp_http_client_perform(client);
-    esp_http_client_cleanup(client);
 }
 
 /* ===== HTTP受信ハンドラ ===== */
@@ -74,18 +55,20 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
         if (root) {
 
             cJSON *status = cJSON_GetObjectItem(root, "status");
+            cJSON *comment = cJSON_GetObjectItem(root, "comment");
 
             if (cJSON_IsString(status) && status->valuestring) {
-
-                /* ★ 同じ状態なら更新しない（無駄防止） */
                 if (strcmp(ui_get_status(), status->valuestring) != 0) {
-
-                    strncpy(g_message, status->valuestring, sizeof(g_message));
-                    g_message[sizeof(g_message) - 1] = '\0';
-
-                    ui_update(status->valuestring);
+                    strncpy(g_presence.status, status->valuestring, sizeof(g_presence.status) - 1);
+                    g_presence.status[sizeof(g_presence.status) - 1] = '\0';
                 }
             }
+
+            if (cJSON_IsString(comment) && comment->valuestring) {
+                strncpy(g_presence.comment, comment->valuestring, sizeof(g_presence.comment) - 1);
+            }
+
+            ui_update(g_presence.status);
 
             cJSON_Delete(root);
         }
@@ -95,9 +78,9 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 }
 
 /* ===== 全送信 ===== */
-void presence_send_update_all_with(const char *status)
+void presence_send_update_all_with()
 {
-    char json[256];
+    char json[512];
 
     int64_t now = esp_timer_get_time();
 
@@ -110,9 +93,14 @@ void presence_send_update_all_with(const char *status)
     g_last_send_time = now;
 
     snprintf(json, sizeof(json),
-        "{ \"hostname\":\"%s\", \"status\":\"%s\" }",
+        "{"
+        "\"hostname\":\"%s\","
+        "\"status\":\"%s\","
+        "\"comment\":\"%s\""
+        "}",
         g_config.hostname,
-        status
+        g_presence.status,
+        g_presence.comment
     );
 
     for (int i = 0; i < g_config.master_count; i++) {
@@ -143,7 +131,7 @@ void presence_send_update_all_with(const char *status)
 
 void presence_send_update_all(void)
 {
-    presence_send_update_all_with(ui_get_status());
+    presence_send_update_all_with();
 }
 
 void presence_poll_master(void)
