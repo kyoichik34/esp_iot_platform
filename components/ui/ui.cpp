@@ -84,6 +84,7 @@ static void draw_status(void)
              "%s",
              g_ipv6_ready ? g_ipv6_str : "IPv6 is not available");
     int ipv6_w = lcd.textWidth(line1);
+
     lcd.setCursor(width - ipv6_w,
                   height - 20);
     lcd.print(line1);
@@ -96,11 +97,11 @@ static void draw_center_text(const char *text)
 
     int screen_w = lcd.width();
     int screen_h = lcd.height();
-    const int text_h = 48;
+    const int text_h = 72;
 
     lcd.setFont(&fonts::lgfxJapanGothic_24);
     lcd.setTextSize(3);
-    lcd.setTextColor(TFT_WHITE, TFT_BLACK);
+    lcd.setTextColor(TFT_WHITE, TFT_BLUE);
 
     int text_w = lcd.textWidth(text);
     int x = (screen_w - text_w) / 2;
@@ -110,10 +111,10 @@ static void draw_center_text(const char *text)
     // ★文字領域全体をクリア
     lcd.fillRect(
         0,
-        y,
+        y - 6,
         screen_w,
-        text_h + 10,
-        TFT_BLACK
+        text_h + 12,
+        TFT_CYAN
     );
 
     lcd.setCursor(x, y);
@@ -140,9 +141,9 @@ static void draw_comment(const char *comment)
     /* コメント領域だけ消す */
     lcd.fillRect(
         0,
-        y - 4,
+        y,
         screen_w,
-        60,
+        screen_h - y - 40,
         TFT_BLACK
     );
 
