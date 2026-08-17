@@ -57,7 +57,7 @@ static esp_err_t state_get_handler(httpd_req_t *req)
              "\"ipv4_ready\":%d,"
              "\"ipv6\":\"%s\","
              "\"ipv6_ready\":%d,"
-             "\"status\":\"%d\",",
+             "\"status\":%d,",
              g_ipv4_str,
              g_ipv4_ready,
              g_ipv6_str,

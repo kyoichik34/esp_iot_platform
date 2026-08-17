@@ -91,7 +91,7 @@ void presence_send_update_all_with()
     snprintf(json, sizeof(json),
         "{"
         "\"hostname\":\"%s\","
-        "\"status\":\"%d\","
+        "\"status\":%d,"
         "\"comment\":\"%s\""
         "}",
         g_config.hostname,
