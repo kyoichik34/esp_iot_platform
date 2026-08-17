@@ -38,20 +38,28 @@ static void shuffle(char masters[][64], int count)
 /* ===== HTTP受信ハンドラ ===== */
 static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
-    if (evt->event_id == HTTP_EVENT_ON_DATA) {
+    static char rxbuf[1024];
+    static size_t rxlen;
 
-        char buf[256] = {0};
+    if (evt->event_id == HTTP_EVENT_ON_CONNECTED) {
+        rxlen = 0;
+    }
+    else if(evt->event_id == HTTP_EVENT_ON_DATA) {
+        memcpy(rxbuf + rxlen, evt->data,
+        evt->data_len);
 
-        int len = evt->data_len;
-        if (len >= sizeof(buf)) len = sizeof(buf) - 1;
+        rxlen += evt->data_len;
+    }
+    else if(evt->event_id == HTTP_EVENT_ON_FINISH) {
+        rxbuf[rxlen] = '\0';
+        ESP_LOGI(TAG, "JSON=%s", rxbuf);
 
-        memcpy(buf, evt->data, len);
-        buf[len] = '\0';
+        rxlen = 0;
 
-        ESP_LOGI(TAG, "RECV: %s", buf);
+        ESP_LOGI(TAG, "RECV: %s", rxbuf);
 
         /* ===== JSON parse ===== */
-        cJSON *root = cJSON_Parse(buf);
+        cJSON *root = cJSON_Parse(rxbuf);
         if (root) {
 
             cJSON *status = cJSON_GetObjectItem(root, "status");
@@ -60,13 +68,18 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
             if (cJSON_IsNumber(status)) {
                 g_presence.status = status->valueint;
             }
-
+            else if (cJSON_IsString(status) && status->valuestring) {
+                g_presence.status = atoi(status->valuestring);
+            }
             if (cJSON_IsString(comment) && comment->valuestring) {
                 strncpy(g_presence.comment, comment->valuestring, sizeof(g_presence.comment) - 1);
             }
             cJSON_Delete(root);
 
             ui_update(&g_presence);
+        }
+        else {
+            ESP_LOGW(TAG, "JSON parse failed");
         }
     }
 
