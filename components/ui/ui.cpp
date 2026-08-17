@@ -82,7 +82,7 @@ static void draw_status(void)
      */
     snprintf(line1, sizeof(line1),
              "%s",
-             g_ipv6_ready ? g_ipv6_str : "IPv6 is not available");
+             g_ipv6_ready ? g_ipv6_str : "[IPv6 is not available]");
     int ipv6_w = lcd.textWidth(line1);
 
     lcd.setCursor(width - ipv6_w,
