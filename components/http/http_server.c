@@ -1,6 +1,7 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "lwip/sockets.h"
 
 #include "config.h"
 #include "wifi.h"
@@ -11,6 +12,47 @@
 
 static const char *TAG = "http";
 
+
+static void log_http_access(httpd_req_t *req)
+{
+    if(!req) return;
+
+    char *method = "unknown";
+    char ipstr[64] = "unknown";
+    char *ipver = "unknown";
+    int sockfd = httpd_req_to_sockfd(req);
+
+    struct sockaddr_storage addr;
+    socklen_t addr_len = sizeof(addr);
+
+    if(req->method == HTTP_GET)
+    {
+        method = "GET";
+    }
+    else if(req->method == HTTP_POST)
+    {
+        method = "POST";
+    }
+
+    if (getpeername(sockfd, (struct sockaddr *)&addr, &addr_len) == 0)
+    {
+        if (addr.ss_family == AF_INET)
+        {
+            struct sockaddr_in *a = (struct sockaddr_in *)&addr;
+            inet_ntop(AF_INET, &a->sin_addr, ipstr, sizeof(ipstr));
+            ipver = "IPv4";
+        }
+        else if (addr.ss_family == AF_INET6)
+        {
+            struct sockaddr_in6 *a = (struct sockaddr_in6 *)&addr;
+            inet_ntop(AF_INET6, &a->sin6_addr, ipstr, sizeof(ipstr));
+            ipver = "IPv6";
+        }
+    }
+
+    ESP_LOGI(TAG, "%s %s from [%s]%s", method, req->uri, ipver, ipstr);
+
+}
 
 static esp_err_t root_handler(httpd_req_t *req)
 {
@@ -34,6 +76,7 @@ static esp_err_t root_handler(httpd_req_t *req)
     /* èIí[ */
     httpd_resp_send_chunk(req, NULL, 0);
 
+    log_http_access(req);
     return ESP_OK;
 }
 
@@ -80,6 +123,7 @@ static esp_err_t state_get_handler(httpd_req_t *req)
     httpd_resp_send_chunk(req, resp, HTTPD_RESP_USE_STRLEN);
     httpd_resp_send_chunk(req, NULL, 0);
 
+    log_http_access(req);
     return ESP_OK;
 }
 
@@ -113,6 +157,7 @@ static esp_err_t state_post_handler(httpd_req_t *req)
 
     ui_update(&g_presence);
 
+    log_http_access(req);
     return ESP_OK;
 }
 
@@ -148,6 +193,7 @@ static esp_err_t update_handler(httpd_req_t *req)
 
     ui_update(&g_presence);
 
+    log_http_access(req);
     return ESP_OK;
 }
 
