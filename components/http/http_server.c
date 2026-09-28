@@ -7,6 +7,7 @@
 #include "wifi.h"
 #include "presence.h"
 #include "ui.h"
+#include "metrics.h"
 
 #include "cJSON.h"
 
@@ -236,6 +237,8 @@ void http_server_start(void)
 
         httpd_register_uri_handler(server, &root);
 
+        // ƒƒgƒŠƒNƒX‰Šú‰»
+        metrics_init(server);
 
         ESP_LOGI(TAG, "HTTP server started");
     }
