@@ -22,7 +22,7 @@ typedef struct {
 
 // テスト用送信先リスト（PCの有線IPv6アドレスを指定）
 // ※ PCの有線IPv6アドレスに合わせて書き換えてください
-#define PC_IPV6 "2400:4151:7642:2a10:60c1:845c:a425:290e"
+#define PC_IPV6 "2400:4151:7642:2a10:a5f8:7d29:742e:4922"
 
 static const target_slave_t SLAVE_TARGETS[] = {
     {"Slave-Normal-1", "http://[" PC_IPV6 "]:8001/notify"},
