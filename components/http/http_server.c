@@ -202,6 +202,10 @@ static esp_err_t update_handler(httpd_req_t *req)
 void http_server_start(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    // デフォルトは 7 程度で頭打ちになっているため引き上げる
+    config.max_open_sockets = 16;  // 同時接続ソケット上限を拡大（lwIPのMAX_SOCKETS未満にする）
+    config.backlog_conn = 16;      // listenバックログのキューを拡大（SYNドロップを抑制）
+    config.lru_purge_enable = true; // ソケットが足りない時に最も古いアイドル接続を強制クローズする
 
     httpd_handle_t server = NULL;
 
