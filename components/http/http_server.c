@@ -1,4 +1,5 @@
 #include "esp_http_server.h"
+#include "esp_http_client.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "lwip/sockets.h"
@@ -13,6 +14,78 @@
 
 static const char *TAG = "http";
 
+// 宛先Slaveノードの定義
+typedef struct {
+    const char *name;
+    const char *url;
+} target_slave_t;
+
+// テスト用送信先リスト（PCの有線IPv6アドレスを指定）
+// ※ PCの有線IPv6アドレスに合わせて書き換えてください
+#define PC_IPV6 "2400:4151:7642:2a10:60c1:845c:a425:290e"
+
+static const target_slave_t SLAVE_TARGETS[] = {
+    {"Slave-Normal-1", "http://[" PC_IPV6 "]:8001/notify"},
+    {"Slave-Normal-2", "http://[" PC_IPV6 "]:8002/notify"},
+    {"Slave-Hang-1",   "http://[" PC_IPV6 "]:8004/notify"}, // 10秒ハング
+    {"Slave-Normal-3", "http://[" PC_IPV6 "]:8003/notify"},
+    {"Slave-Dead-1",   "http://[2400:4151:7642:2a10::9999]:80/notify"}, // 電源断 (未割り当てIP)
+};
+#define NUM_TARGETS (sizeof(SLAVE_TARGETS) / sizeof(SLAVE_TARGETS[0]))
+
+// 送信実行タスク
+static void outbound_notify_task(void *pvParameters) {
+    ESP_LOGI("OUTBOUND", "=== Starting sequential notification to %d slaves ===", NUM_TARGETS);
+
+    char post_data[] = "{\"event\":\"presence_update\",\"status\":\"active\"}";
+    int64_t total_start = esp_timer_get_time();
+
+    for (int i = 0; i < NUM_TARGETS; i++) {
+        int64_t start_time = esp_timer_get_time();
+
+        esp_http_client_config_t config = {
+            .url = SLAVE_TARGETS[i].url,
+            .method = HTTP_METHOD_POST,
+            .timeout_ms = 4000, // タイムアウト4秒
+        };
+
+        esp_http_client_handle_t client = esp_http_client_init(&config);
+        esp_http_client_set_post_field(client, post_data, strlen(post_data));
+        esp_http_client_set_header(client, "Content-Type", "application/json");
+
+        ESP_LOGI("OUTBOUND", "[%d/%d] Sending to %s (%s)...", 
+                 i + 1, NUM_TARGETS, SLAVE_TARGETS[i].name, SLAVE_TARGETS[i].url);
+
+        esp_err_t err = esp_http_client_perform(client);
+        uint32_t duration_ms = (uint32_t)((esp_timer_get_time() - start_time) / 1000);
+
+        if (err == ESP_OK) {
+            int status_code = esp_http_client_get_status_code(client);
+            ESP_LOGI("OUTBOUND", " -> %s: SUCCESS (HTTP %d, Time: %lu ms)", 
+                     SLAVE_TARGETS[i].name, status_code, duration_ms);
+        } else {
+            ESP_LOGE("OUTBOUND", " -> %s: FAILED (%s, Time: %lu ms)", 
+                     SLAVE_TARGETS[i].name, esp_err_to_name(err), duration_ms);
+        }
+
+        esp_http_client_cleanup(client);
+    }
+
+    uint32_t total_sec = (uint32_t)((esp_timer_get_time() - total_start) / 1000000);
+    ESP_LOGI("OUTBOUND", "=== Finished all notifications in %lu seconds ===", total_sec);
+    vTaskDelete(NULL);
+}
+
+// テスト起動エンドポイント: GET /api/test/notify_all
+static esp_err_t notify_all_trigger_handler(httpd_req_t *req) {
+    // 送信処理でHTTPサービスタスク自体をブロックしないよう、別タスクで実行
+    xTaskCreate(outbound_notify_task, "outbound_task", 4096, NULL, tskIDLE_PRIORITY + 2, NULL);
+    
+    const char *resp = "{\"status\":\"outbound notification test triggered\"}";
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
 
 static void log_http_access(httpd_req_t *req)
 {
@@ -236,6 +309,15 @@ void http_server_start(void)
         httpd_register_uri_handler(server, &update_uri);
 
         httpd_register_uri_handler(server, &root);
+
+        // http_server_start 内で以下を登録
+        httpd_uri_t uri_test = {
+            .uri      = "/api/test/notify_all",
+            .method   = HTTP_GET,
+            .handler  = notify_all_trigger_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(server, &uri_test);
 
         // メトリクス初期化
         metrics_init(server);
